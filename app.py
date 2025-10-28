@@ -22,7 +22,6 @@ def download_video():
 
         temp_dir = tempfile.mkdtemp()
 
-        # Random user agents to reduce blocking
         user_agents = [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
@@ -37,6 +36,7 @@ def download_video():
             "quiet": True,
             "geo_bypass": True,
             "nocheckcertificate": True,
+            "cookiefile": "cookies.txt",  # 👈 use your YouTube login cookies
             "user_agent": random.choice(user_agents),
             "http_headers": {
                 "User-Agent": random.choice(user_agents),
