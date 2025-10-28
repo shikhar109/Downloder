@@ -1,59 +1,62 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
 import yt_dlp
 import os
 import tempfile
-import traceback
+import re
+import uuid
 
 app = Flask(__name__)
 CORS(app)
 
 @app.route('/')
 def home():
-    return "✅ YouTube Downloader Backend is Running!"
+    return jsonify({"status": "Backend online ✅"})
 
 @app.route('/download', methods=['POST'])
 def download_video():
     try:
         data = request.get_json()
-        url = data.get('url')
+        url = data.get("url")
 
-        if not url:
-            return jsonify({'error': 'No URL provided'}), 400
+        if not url or not re.match(r'https?://', url):
+            return jsonify({"error": "Invalid URL"}), 400
 
-        # Create a temporary directory for downloads
-        temp_dir = tempfile.mkdtemp()
-
-        # Define file path for output
-        output_path = os.path.join(temp_dir, '%(title)s.%(ext)s')
+        temp_dir = tempfile.gettempdir()
+        video_id = str(uuid.uuid4())[:8]
+        output_template = os.path.join(temp_dir, f"cutcraft_{video_id}.%(ext)s")
 
         ydl_opts = {
-            'outtmpl': output_path,
-            'quiet': True,
-            'noplaylist': True,
-            'format': 'best',
-            'ignoreerrors': True,
-            'nocheckcertificate': True,
-            'geo_bypass': True,
-            'socket_timeout': 15,
-            'retries': 3,
-            'extractor_retries': 3,
+            "format": "bestvideo+bestaudio/best",
+            "merge_output_format": "mp4",
+            "outtmpl": output_template,
+            "noplaylist": True,
+            "quiet": True,
+            "retries": 3,
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/120.0.0.0 Safari/537.36",
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            if not info:
-                return jsonify({'error': 'Video not found or restricted'}), 404
-
             filename = ydl.prepare_filename(info)
+            file_path = os.path.splitext(filename)[0] + ".mp4"
 
-        return send_file(filename, as_attachment=True)
+        if not os.path.exists(file_path):
+            return jsonify({"error": "Video not found or restricted"}), 404
+
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=os.path.basename(file_path)
+        )
 
     except Exception as e:
-        print("Error:", traceback.format_exc())
-        return jsonify({'error': str(e)}), 500
+        error_msg = str(e)
+        print("❌ Error:", error_msg)
+        return jsonify({"error": f"Download failed: {error_msg}"}), 500
 
 
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
